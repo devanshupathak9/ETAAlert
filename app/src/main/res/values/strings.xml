@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ETA Alert</string>
+    <string name="app_tagline">Know exactly when to leave</string>
+
+    <!-- API Key Screen -->
+    <string name="api_key_title">Google Maps API Key</string>
+    <string name="api_key_description">Enter your Google Maps API key. Enable the Directions API in Google Cloud Console. Your key is stored locally on your device only.</string>
+    <string name="hint_api_key">Paste your API key here</string>
+    <string name="btn_save_continue">Save &amp; Continue</string>
+    <string name="api_key_saved">API key saved</string>
+    <string name="error_empty_api_key">Please enter a valid API key</string>
+
+    <!-- Setup Screen -->
+    <string name="setup_title">ETA Alert Setup</string>
+    <string name="label_destination">Destination</string>
+    <string name="hint_destination">e.g. 123 Main St, New York or Times Square</string>
+    <string name="label_threshold">Alert me when ETA is under (minutes)</string>
+    <string name="hint_threshold">e.g. 20</string>
+    <string name="label_duration">Stop tracking after (minutes)</string>
+    <string name="hint_duration">e.g. 60</string>
+    <string name="btn_start_tracking">Start Tracking</string>
+    <string name="btn_change_api_key">Change API Key</string>
+    <string name="error_empty_destination">Please enter a destination</string>
+    <string name="error_invalid_threshold">Please enter a valid threshold (positive number)</string>
+    <string name="error_invalid_duration">Please enter a valid duration (positive number)</string>
+    <string name="error_location_permission">Location permission is required to track ETA</string>
+
+    <!-- Status Screen -->
+    <string name="status_header">Tracking ETA to</string>
+    <string name="unknown_destination">Unknown destination</string>
+    <string name="eta_calculating">—</string>
+    <string name="eta_minutes_format">%d min</string>
+    <string name="status_calculating">Calculating…</string>
+    <string name="status_good_to_go">Good to go! 🟢</string>
+    <string name="status_not_yet">Not yet 🔴</string>
+    <string name="threshold_info">Alert threshold: %1$d min · Tracking for %2$d min</string>
+    <string name="btn_stop_tracking">Stop Tracking</string>
+    <string name="status_circle_desc">Status indicator</string>
+</resources>

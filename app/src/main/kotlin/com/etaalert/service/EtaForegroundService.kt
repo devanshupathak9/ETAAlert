@@ -1,0 +1,246 @@
+package com.etaalert.service
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Intent
+import android.os.IBinder
+import android.os.PowerManager
+import androidx.core.app.NotificationCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.etaalert.R
+import com.etaalert.data.AppPreferences
+import com.etaalert.data.DirectionsRepository
+import com.etaalert.data.LocationRepository
+import com.etaalert.domain.EtaEvaluator
+import com.etaalert.ui.StatusActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+class EtaForegroundService : Service() {
+
+    companion object {
+        const val ACTION_START = "com.etaalert.START"
+        const val ACTION_STOP = "com.etaalert.STOP"
+        const val ACTION_ETA_UPDATE = "com.etaalert.ETA_UPDATE"
+        const val EXTRA_ETA_MINUTES = "eta_minutes"
+
+        private const val CHANNEL_TRACKING = "eta_tracking"
+        private const val CHANNEL_ALERT = "eta_alert"
+        private const val NOTIFICATION_ID_TRACKING = 1001
+        private const val NOTIFICATION_ID_ALERT = 1002
+        private const val POLL_INTERVAL_MS = 4 * 60 * 1000L
+    }
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var pollingJob: Job? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    private lateinit var prefs: AppPreferences
+    private lateinit var directionsRepo: DirectionsRepository
+    private lateinit var locationRepo: LocationRepository
+    private lateinit var evaluator: EtaEvaluator
+    private lateinit var notificationManager: NotificationManager
+
+    override fun onCreate() {
+        super.onCreate()
+        prefs = AppPreferences(this)
+        directionsRepo = DirectionsRepository()
+        locationRepo = LocationRepository(this)
+        evaluator = EtaEvaluator()
+        notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        createNotificationChannels()
+        acquireWakeLock()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_START -> startTracking()
+            ACTION_STOP -> stopTracking()
+        }
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        super.onDestroy()
+        pollingJob?.cancel()
+        releaseWakeLock()
+        prefs.saveTracking(false)
+    }
+
+    private fun startTracking() {
+        val trackingNotification = buildTrackingNotification("Initializing...")
+        startForeground(NOTIFICATION_ID_TRACKING, trackingNotification)
+        prefs.saveTracking(true)
+        prefs.saveTrackingStartTime(System.currentTimeMillis())
+        startPollingLoop()
+    }
+
+    private fun stopTracking() {
+        pollingJob?.cancel()
+        prefs.saveTracking(false)
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    private fun startPollingLoop() {
+        pollingJob?.cancel()
+        pollingJob = serviceScope.launch {
+            while (true) {
+                performPoll()
+                delay(POLL_INTERVAL_MS)
+            }
+        }
+    }
+
+    private suspend fun performPoll() {
+        val apiKey = prefs.getApiKey() ?: run {
+            stopTracking()
+            return
+        }
+
+        val location = locationRepo.getCurrentLocation(this) ?: run {
+            updateTrackingNotification("Could not get location. Retrying...")
+            return
+        }
+
+        val destinationName = prefs.getDestinationName() ?: run {
+            stopTracking()
+            return
+        }
+
+        val etaMinutes = directionsRepo.getEtaMinutesByName(
+            originLat = location.latitude,
+            originLng = location.longitude,
+            destinationName = destinationName,
+            apiKey = apiKey
+        ) ?: run {
+            updateTrackingNotification("Unable to fetch ETA. Retrying...")
+            return
+        }
+
+        prefs.saveLastEta(etaMinutes)
+        broadcastEtaUpdate(etaMinutes)
+
+        val threshold = prefs.getThreshold()
+        val duration = prefs.getDuration()
+        val startTime = prefs.getTrackingStartTime()
+
+        val result = evaluator.evaluate(etaMinutes, threshold, startTime, duration)
+
+        when {
+            result.shouldAlert -> {
+                fireAlertNotification(etaMinutes, threshold)
+                stopTracking()
+            }
+            result.trackingExpired -> {
+                updateTrackingNotification("Tracking duration expired. Stopping.")
+                stopTracking()
+            }
+            else -> {
+                updateTrackingNotification("ETA: $etaMinutes min (target: ≤$threshold min)")
+            }
+        }
+    }
+
+    private fun broadcastEtaUpdate(etaMinutes: Int) {
+        val intent = Intent(ACTION_ETA_UPDATE).apply {
+            putExtra(EXTRA_ETA_MINUTES, etaMinutes)
+        }
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+    }
+
+    private fun createNotificationChannels() {
+        val trackingChannel = NotificationChannel(
+            CHANNEL_TRACKING,
+            "ETA Tracking",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows while ETA is being monitored"
+            setShowBadge(false)
+        }
+
+        val alertChannel = NotificationChannel(
+            CHANNEL_ALERT,
+            "ETA Alert",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Fires when it's time to leave"
+            enableVibration(true)
+        }
+
+        notificationManager.createNotificationChannel(trackingChannel)
+        notificationManager.createNotificationChannel(alertChannel)
+    }
+
+    private fun buildTrackingNotification(contentText: String): Notification {
+        val statusIntent = Intent(this, StatusActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, statusIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(this, CHANNEL_TRACKING)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Tracking ETA...")
+            .setContentText(contentText)
+            .setOngoing(true)
+            .setContentIntent(pendingIntent)
+            .setSilent(true)
+            .build()
+    }
+
+    private fun updateTrackingNotification(contentText: String) {
+        val notification = buildTrackingNotification(contentText)
+        notificationManager.notify(NOTIFICATION_ID_TRACKING, notification)
+    }
+
+    private fun fireAlertNotification(etaMinutes: Int, threshold: Int) {
+        val statusIntent = Intent(this, StatusActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, 1, statusIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_ALERT)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Time to leave!")
+            .setContentText("ETA is now $etaMinutes min — under your $threshold min threshold.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setVibrate(longArrayOf(0, 500, 200, 500))
+            .build()
+
+        notificationManager.notify(NOTIFICATION_ID_ALERT, notification)
+    }
+
+    private fun acquireWakeLock() {
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "ETAAlert:TrackingWakeLock"
+        ).apply {
+            acquire(3 * 60 * 60 * 1000L)
+        }
+    }
+
+    private fun releaseWakeLock() {
+        wakeLock?.let {
+            if (it.isHeld) it.release()
+        }
+        wakeLock = null
+    }
+}
