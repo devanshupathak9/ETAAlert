@@ -48,13 +48,6 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
-        <provider
-            android:name="androidx.work.impl.WorkManagerInitializer"
-            android:authorities="${applicationId}.workmanager-init"
-            android:exported="false"
-            tools:node="remove"
-            xmlns:tools="http://schemas.android.com/tools" />
-
     </application>
 
 </manifest>
