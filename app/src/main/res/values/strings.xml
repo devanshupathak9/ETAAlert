@@ -5,10 +5,16 @@
 
     <!-- API Key Screen -->
     <string name="api_key_title">Google Maps API Key</string>
-    <string name="api_key_description">Enter your Google Maps API key. Enable the Directions API in Google Cloud Console. Your key is stored locally on your device only.</string>
+    <string name="api_key_description">Enter your Google Maps API key. Enable the Directions API, Places API, and Geocoding API in Google Cloud Console. Your key is stored locally on your device only.</string>
     <string name="hint_api_key">Paste your API key here</string>
-    <string name="btn_save_continue">Save &amp; Continue</string>
+    <string name="btn_save_continue">Verify &amp; Continue</string>
     <string name="api_key_saved">API key saved</string>
+    <string name="api_key_valid">API key verified!</string>
+    <string name="api_key_error_title">API Key Issue</string>
+    <string name="api_key_error_denied">Invalid or expired API key, or the Directions API is not enabled.\n\nPlease check your Google Cloud Console and make sure:\n• The API key is correct\n• Directions API is enabled\n• Billing is active</string>
+    <string name="api_key_error_quota">This API key has exceeded its daily quota or billing limit. Please check your Google Cloud Console billing settings.</string>
+    <string name="api_key_error_network">Could not reach Google servers. Check your internet connection.\n\nSave the key anyway?</string>
+    <string name="btn_save_anyway">Save Anyway</string>
     <string name="error_empty_api_key">Please enter a valid API key</string>
 
     <!-- Setup Screen -->
@@ -25,6 +31,9 @@
     <string name="error_invalid_threshold">Please enter a valid threshold (positive number)</string>
     <string name="error_invalid_duration">Please enter a valid duration (positive number)</string>
     <string name="error_location_permission">Location permission is required to track ETA</string>
+    <string name="current_location_detecting">Detecting your location\u2026</string>
+    <string name="current_location_unavailable">Could not get location</string>
+    <string name="current_location_permission_needed">Grant location permission to detect</string>
 
     <!-- Status Screen -->
     <string name="status_header">Tracking ETA to</string>
