@@ -7,6 +7,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
+class InvalidApiKeyException : Exception("API key is invalid or not authorized")
+
 class DirectionsRepository {
 
     private val client = OkHttpClient.Builder()
@@ -26,6 +28,8 @@ class DirectionsRepository {
             val destination = "$destinationLat,$destinationLng"
             val url = buildUrl(origin, destination, apiKey)
             fetchEta(url)
+        } catch (e: InvalidApiKeyException) {
+            throw e
         } catch (e: Exception) {
             null
         }
@@ -41,6 +45,8 @@ class DirectionsRepository {
             val origin = "$originLat,$originLng"
             val url = buildUrl(origin, destinationName, apiKey)
             fetchEta(url)
+        } catch (e: InvalidApiKeyException) {
+            throw e
         } catch (e: Exception) {
             null
         }
@@ -67,6 +73,7 @@ class DirectionsRepository {
         val json = JsonParser.parseString(body).asJsonObject
 
         val status = json.get("status")?.asString
+        if (status == "REQUEST_DENIED" || status == "INVALID_REQUEST") throw InvalidApiKeyException()
         if (status != "OK") return null
 
         val routes = json.getAsJsonArray("routes") ?: return null

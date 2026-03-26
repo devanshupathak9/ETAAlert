@@ -13,6 +13,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.etaalert.R
 import com.etaalert.data.AppPreferences
 import com.etaalert.data.DirectionsRepository
+import com.etaalert.data.InvalidApiKeyException
 import com.etaalert.data.LocationRepository
 import com.etaalert.domain.EtaEvaluator
 import com.etaalert.ui.StatusActivity
@@ -117,13 +118,19 @@ class EtaForegroundService : Service() {
             return
         }
 
-        val etaMinutes = directionsRepo.getEtaMinutesByName(
-            originLat = location.latitude,
-            originLng = location.longitude,
-            destinationName = destinationName,
-            apiKey = apiKey
-        ) ?: run {
-            updateTrackingNotification("Unable to fetch ETA. Retrying...")
+        val etaMinutes = try {
+            directionsRepo.getEtaMinutesByName(
+                originLat = location.latitude,
+                originLng = location.longitude,
+                destinationName = destinationName,
+                apiKey = apiKey
+            ) ?: run {
+                updateTrackingNotification("Unable to fetch ETA. Retrying...")
+                return
+            }
+        } catch (e: InvalidApiKeyException) {
+            fireInvalidApiKeyNotification()
+            stopTracking()
             return
         }
 
@@ -222,6 +229,28 @@ class EtaForegroundService : Service() {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setVibrate(longArrayOf(0, 500, 200, 500))
+            .build()
+
+        notificationManager.notify(NOTIFICATION_ID_ALERT, notification)
+    }
+
+    private fun fireInvalidApiKeyNotification() {
+        val apiKeyIntent = Intent(this, com.etaalert.ApiKeyActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, 2, apiKeyIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_ALERT)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Invalid API Key")
+            .setContentText("Your Google Maps API key is not working. Tap to update it.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setVibrate(longArrayOf(0, 400, 200, 400))
             .build()
 
         notificationManager.notify(NOTIFICATION_ID_ALERT, notification)
