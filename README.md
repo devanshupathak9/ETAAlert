@@ -37,4 +37,28 @@ Follow these steps to get the MVP running on your environment:
 
 ---
 
-Would you like me to help you draft a `README.md` specifically for the GitHub repository, or perhaps generate a `.gitignore` file for this project?
+Everything looks correct. All constraint chains are intact. Here's a summary of all changes made:                                  
+                                                                                                                                     
+  ---                                                                                     
+  1. API Key Validation (ApiKeyActivity.kt + activity_api_key.xml)                                                                   
+  - Button now says "Verify & Continue" — makes a real test Directions API call before saving                                        
+  - Shows a spinner while validating                                                                                                 
+  - Invalid/expired key → AlertDialog: "Invalid or expired API key, or Directions API not enabled" with instructions                 
+  - Quota exceeded → AlertDialog: billing issue message                                                                              
+  - Network error → offers "Save Anyway" option so you're not blocked offline                                                        
+  - Valid key → toast "API key verified!" then proceeds                                                                              
+                                                                                                                                     
+  2. Destination search with Places autocomplete (SetupActivity.kt + activity_setup.xml)                                           
+  - Destination field is now a MaterialAutoCompleteTextView                                                                          
+  - After typing 2+ characters, waits 400ms then calls the Places Autocomplete API                                                   
+  - Suggestions appear as a dropdown — biased to your current location (nearby results first)                                        
+  - Tap any suggestion to fill the field                                                                                             
+                                                                                                                                     
+  3. Current location bar above destination (activity_setup.xml + SetupActivity.kt)                                                  
+  - A subtle pill-shaped row shows: From: [your current address]                                                                     
+  - Auto-detects on screen open using FusedLocationProvider + reverse geocoding                                                      
+  - Refresh button (↺) to re-detect if you've moved                                                                                  
+  - Falls back to lat, lng coordinates if geocoding API isn't enabled                                                                
+                                                                                                                                     
+  Note: The Places and Geocoding APIs need to be enabled in Google Cloud Console alongside the existing Directions API. The updated  
+  API key description screen now mentions all three required APIs.
