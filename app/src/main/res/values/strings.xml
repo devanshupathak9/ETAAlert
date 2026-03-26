@@ -5,7 +5,11 @@
 
     <!-- API Key Screen -->
     <string name="api_key_title">Google Maps API Key</string>
-    <string name="api_key_description">Enter your Google Maps API key. Enable the Directions API, Places API, and Geocoding API in Google Cloud Console. Your key is stored locally on your device only.</string>
+    <string name="api_key_description">Your key is stored locally on this device only and never shared.</string>
+    <string name="api_key_instructions_title">How to create your API key:</string>
+    <string name="api_key_instructions">1. Go to console.cloud.google.com\n2. Create or select a project\n3. Enable: Directions API, Places API, Geocoding API\n4. Go to Credentials → Create Credentials → API Key\n5. Copy the key and paste it below</string>
+    <string name="api_key_status_valid">✓ API key verified successfully!</string>
+    <string name="api_key_status_invalid">✗ Invalid or expired key. Check your Cloud Console.</string>
     <string name="hint_api_key">Paste your API key here</string>
     <string name="btn_save_continue">Verify &amp; Continue</string>
     <string name="api_key_saved">API key saved</string>
@@ -18,19 +22,25 @@
     <string name="error_empty_api_key">Please enter a valid API key</string>
 
     <!-- Setup Screen -->
-    <string name="setup_title">ETA Alert Setup</string>
-    <string name="label_destination">Destination</string>
-    <string name="hint_destination">e.g. 123 Main St, New York or Times Square</string>
+    <string name="setup_title">ETA Alert</string>
+    <string name="setup_subtitle">Know exactly when to leave</string>
+    <string name="label_destination">Where are you going?</string>
+    <string name="hint_destination">Search destination (e.g. Times Square, New York)</string>
     <string name="label_threshold">Alert me when ETA is under (minutes)</string>
     <string name="hint_threshold">e.g. 20</string>
-    <string name="label_duration">Stop tracking after (minutes)</string>
-    <string name="hint_duration">e.g. 60</string>
-    <string name="btn_start_tracking">Start Tracking</string>
-    <string name="btn_change_api_key">Change API Key</string>
+    <string name="label_duration">Tracking Duration</string>
+    <string name="hint_duration">Select tracking duration</string>
+    <string name="duration_30_min">30 minutes</string>
+    <string name="duration_60_min">60 minutes</string>
+    <string name="duration_90_min">90 minutes</string>
+    <string name="duration_120_min">120 minutes</string>
+    <string name="btn_start_tracking">Search &amp; Start Tracking</string>
+    <string name="btn_change_api_key">Add / Update API Key</string>
     <string name="error_empty_destination">Please enter a destination</string>
     <string name="error_invalid_threshold">Please enter a valid threshold (positive number)</string>
-    <string name="error_invalid_duration">Please enter a valid duration (positive number)</string>
+    <string name="error_invalid_duration">Please select a tracking duration</string>
     <string name="error_location_permission">Location permission is required to track ETA</string>
+    <string name="error_no_api_key">Please set up your Google Maps API key first</string>
     <string name="current_location_detecting">Detecting your location\u2026</string>
     <string name="current_location_unavailable">Could not get location</string>
     <string name="current_location_permission_needed">Grant location permission to detect</string>

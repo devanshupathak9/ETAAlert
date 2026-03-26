@@ -1,13 +1,15 @@
 package com.etaalert
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.etaalert.data.AppPreferences
@@ -21,7 +23,12 @@ import java.util.concurrent.TimeUnit
 
 class ApiKeyActivity : AppCompatActivity() {
 
+    companion object {
+        const val EXTRA_SHOW_BACK = "show_back_button"
+    }
+
     private lateinit var prefs: AppPreferences
+    private lateinit var tvValidationStatus: TextView
 
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -34,9 +41,18 @@ class ApiKeyActivity : AppCompatActivity() {
 
         prefs = AppPreferences(this)
 
+        val btnBack = findViewById<ImageButton>(R.id.btnBack)
         val etApiKey = findViewById<EditText>(R.id.etApiKey)
         val btnSave = findViewById<Button>(R.id.btnSaveApiKey)
         val progressBar = findViewById<ProgressBar>(R.id.progressValidation)
+        tvValidationStatus = findViewById(R.id.tvValidationStatus)
+
+        // Show back button if launched from setup or if an API key already exists
+        val showBack = intent.getBooleanExtra(EXTRA_SHOW_BACK, false) || prefs.getApiKey() != null
+        if (showBack) {
+            btnBack.visibility = View.VISIBLE
+            btnBack.setOnClickListener { finish() }
+        }
 
         val existingKey = prefs.getApiKey()
         if (!existingKey.isNullOrEmpty()) {
@@ -52,6 +68,7 @@ class ApiKeyActivity : AppCompatActivity() {
 
             btnSave.isEnabled = false
             progressBar.visibility = View.VISIBLE
+            tvValidationStatus.visibility = View.GONE
 
             lifecycleScope.launch {
                 val status = validateApiKey(key)
@@ -61,43 +78,38 @@ class ApiKeyActivity : AppCompatActivity() {
                 when (status) {
                     "OK", "ZERO_RESULTS", "NOT_FOUND" -> {
                         prefs.saveApiKey(key)
-                        Toast.makeText(
-                            this@ApiKeyActivity,
-                            getString(R.string.api_key_valid),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        startActivity(Intent(this@ApiKeyActivity, SetupActivity::class.java))
-                        finish()
+                        showStatus(getString(R.string.api_key_status_valid), isSuccess = true)
+                        // Navigate after brief delay so user sees success message
+                        launch {
+                            kotlinx.coroutines.delay(800)
+                            startActivity(Intent(this@ApiKeyActivity, SetupActivity::class.java))
+                            finish()
+                        }
                     }
                     "REQUEST_DENIED" -> {
-                        AlertDialog.Builder(this@ApiKeyActivity)
-                            .setTitle(getString(R.string.api_key_error_title))
-                            .setMessage(getString(R.string.api_key_error_denied))
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show()
+                        showStatus(getString(R.string.api_key_status_invalid), isSuccess = false)
                     }
                     "OVER_DAILY_LIMIT", "OVER_QUERY_LIMIT" -> {
-                        AlertDialog.Builder(this@ApiKeyActivity)
-                            .setTitle(getString(R.string.api_key_error_title))
-                            .setMessage(getString(R.string.api_key_error_quota))
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show()
+                        showStatus(getString(R.string.api_key_error_quota), isSuccess = false)
                     }
                     else -> {
-                        AlertDialog.Builder(this@ApiKeyActivity)
-                            .setTitle(getString(R.string.api_key_error_title))
-                            .setMessage(getString(R.string.api_key_error_network))
-                            .setPositiveButton(getString(R.string.btn_save_anyway)) { _, _ ->
-                                prefs.saveApiKey(key)
-                                startActivity(Intent(this@ApiKeyActivity, SetupActivity::class.java))
-                                finish()
-                            }
-                            .setNegativeButton(android.R.string.cancel, null)
-                            .show()
+                        // Network error — offer to save anyway via Toast + inline note
+                        showStatus("Could not reach Google servers. Check your connection.", isSuccess = false)
+                        Toast.makeText(
+                            this@ApiKeyActivity,
+                            getString(R.string.btn_save_anyway) + "? Tap Verify again when online.",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
             }
         }
+    }
+
+    private fun showStatus(message: String, isSuccess: Boolean) {
+        tvValidationStatus.text = message
+        tvValidationStatus.setTextColor(if (isSuccess) Color.parseColor("#2E7D32") else Color.parseColor("#C62828"))
+        tvValidationStatus.visibility = View.VISIBLE
     }
 
     private suspend fun validateApiKey(key: String): String = withContext(Dispatchers.IO) {

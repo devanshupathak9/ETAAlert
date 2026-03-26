@@ -36,7 +36,7 @@ class SetupActivity : AppCompatActivity() {
 
     private lateinit var etDestination: AutoCompleteTextView
     private lateinit var etThreshold: EditText
-    private lateinit var etDuration: EditText
+    private lateinit var etDuration: AutoCompleteTextView
     private lateinit var tvCurrentLocation: TextView
     private lateinit var btnRefreshLocation: ImageButton
 
@@ -44,6 +44,8 @@ class SetupActivity : AppCompatActivity() {
     private var currentLng: Double? = null
     private var searchJob: Job? = null
     private lateinit var suggestionAdapter: ArrayAdapter<String>
+
+    private val durationOptions = listOf(30, 60, 90, 120)
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -78,12 +80,22 @@ class SetupActivity : AppCompatActivity() {
         val btnChangeKey = findViewById<Button>(R.id.btnChangeApiKey)
 
         etThreshold.setText(prefs.getThreshold().toString())
-        etDuration.setText(prefs.getDuration().toString())
 
         val savedDest = prefs.getDestinationName()
         if (!savedDest.isNullOrEmpty()) {
             etDestination.setText(savedDest)
         }
+
+        // Set up duration dropdown
+        val durationLabels = durationOptions.map { "$it minutes" }
+        val durationAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, durationLabels)
+        etDuration.setAdapter(durationAdapter)
+        etDuration.inputType = 0 // disable keyboard
+
+        // Select saved duration (default 60 min)
+        val savedDuration = prefs.getDuration()
+        val savedIndex = durationOptions.indexOf(savedDuration).takeIf { it >= 0 } ?: 1
+        etDuration.setText(durationLabels[savedIndex], false)
 
         // Places autocomplete setup
         suggestionAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, mutableListOf())
@@ -109,13 +121,27 @@ class SetupActivity : AppCompatActivity() {
         })
 
         btnStart.setOnClickListener {
+            // First check API key
+            if (prefs.getApiKey() == null) {
+                Toast.makeText(this, getString(R.string.error_no_api_key), Toast.LENGTH_LONG).show()
+                startActivity(
+                    Intent(this, ApiKeyActivity::class.java).apply {
+                        putExtra(ApiKeyActivity.EXTRA_SHOW_BACK, true)
+                    }
+                )
+                return@setOnClickListener
+            }
             if (validateAndSaveInputs()) {
                 checkLocationPermissionAndStart()
             }
         }
 
         btnChangeKey.setOnClickListener {
-            startActivity(Intent(this, ApiKeyActivity::class.java))
+            startActivity(
+                Intent(this, ApiKeyActivity::class.java).apply {
+                    putExtra(ApiKeyActivity.EXTRA_SHOW_BACK, true)
+                }
+            )
         }
 
         btnRefreshLocation.setOnClickListener {
@@ -169,7 +195,8 @@ class SetupActivity : AppCompatActivity() {
             return false
         }
 
-        val duration = etDuration.text.toString().trim().toIntOrNull()
+        val durationText = etDuration.text.toString().trim()
+        val duration = durationText.split(" ").firstOrNull()?.toIntOrNull()
         if (duration == null || duration <= 0) {
             Toast.makeText(this, getString(R.string.error_invalid_duration), Toast.LENGTH_SHORT).show()
             return false
