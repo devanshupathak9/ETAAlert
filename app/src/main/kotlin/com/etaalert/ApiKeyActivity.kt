@@ -17,8 +17,10 @@ import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
 class ApiKeyActivity : AppCompatActivity() {
@@ -76,7 +78,7 @@ class ApiKeyActivity : AppCompatActivity() {
                 btnSave.isEnabled = true
 
                 when (status) {
-                    "OK", "ZERO_RESULTS", "NOT_FOUND" -> {
+                    "OK" -> {
                         prefs.saveApiKey(key)
                         showStatus(getString(R.string.api_key_status_valid), isSuccess = true)
                         // Navigate after brief delay so user sees success message
@@ -86,10 +88,10 @@ class ApiKeyActivity : AppCompatActivity() {
                             finish()
                         }
                     }
-                    "REQUEST_DENIED" -> {
+                    "PERMISSION_DENIED" -> {
                         showStatus(getString(R.string.api_key_status_invalid), isSuccess = false)
                     }
-                    "OVER_DAILY_LIMIT", "OVER_QUERY_LIMIT" -> {
+                    "QUOTA_EXCEEDED" -> {
                         showStatus(getString(R.string.api_key_error_quota), isSuccess = false)
                     }
                     else -> {
@@ -114,13 +116,36 @@ class ApiKeyActivity : AppCompatActivity() {
 
     private suspend fun validateApiKey(key: String): String = withContext(Dispatchers.IO) {
         try {
-            val url = "https://maps.googleapis.com/maps/api/directions/json" +
-                    "?origin=New+York,NY&destination=Newark,NJ&key=$key"
-            val request = Request.Builder().url(url).build()
+            val jsonBody = """
+                {
+                  "origin": {"location": {"latLng": {"latitude": 40.7128, "longitude": -74.0060}}},
+                  "destination": {"location": {"latLng": {"latitude": 40.7306, "longitude": -73.9352}}},
+                  "travelMode": "DRIVE",
+                  "routingPreference": "TRAFFIC_AWARE"
+                }
+            """.trimIndent()
+            val request = Request.Builder()
+                .url("https://routes.googleapis.com/directions/v2:computeRoutes")
+                .addHeader("X-Goog-Api-Key", key)
+                .addHeader("X-Goog-FieldMask", "routes.duration")
+                .post(jsonBody.toRequestBody("application/json".toMediaType()))
+                .build()
             val response = httpClient.newCall(request).execute()
-            if (!response.isSuccessful) return@withContext "NETWORK_ERROR"
             val body = response.body?.string() ?: return@withContext "NETWORK_ERROR"
-            JsonParser.parseString(body).asJsonObject.get("status")?.asString ?: "NETWORK_ERROR"
+            when (response.code) {
+                200 -> "OK"
+                403 -> "PERMISSION_DENIED"
+                429 -> "QUOTA_EXCEEDED"
+                else -> {
+                    // Try to extract error status from body
+                    try {
+                        JsonParser.parseString(body).asJsonObject
+                            .getAsJsonObject("error")?.get("status")?.asString ?: "NETWORK_ERROR"
+                    } catch (e: Exception) {
+                        "NETWORK_ERROR"
+                    }
+                }
+            }
         } catch (e: Exception) {
             "NETWORK_ERROR"
         }
