@@ -19,6 +19,7 @@ class AppPreferences(context: Context) {
         private const val KEY_TRACKING_START = "tracking_start_time"
         private const val KEY_IS_TRACKING = "is_tracking"
         private const val KEY_LAST_ETA = "last_eta_minutes"
+        private const val KEY_POLL_COUNT = "poll_count"
     }
 
     fun saveApiKey(key: String) {
@@ -87,5 +88,19 @@ class AppPreferences(context: Context) {
 
     fun getLastEta(): Int {
         return prefs.getInt(KEY_LAST_ETA, -1)
+    }
+
+    fun savePollCount(count: Int) {
+        prefs.edit().putInt(KEY_POLL_COUNT, count).apply()
+    }
+
+    fun getPollCount(): Int {
+        return prefs.getInt(KEY_POLL_COUNT, 0)
+    }
+
+    fun incrementAndGetPollCount(): Int {
+        val next = getPollCount() + 1
+        savePollCount(next)
+        return next
     }
 }

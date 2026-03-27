@@ -30,7 +30,9 @@ class EtaForegroundService : Service() {
         const val ACTION_START = "com.etaalert.START"
         const val ACTION_STOP = "com.etaalert.STOP"
         const val ACTION_ETA_UPDATE = "com.etaalert.ETA_UPDATE"
+        const val ACTION_TRACKING_STOPPED = "com.etaalert.TRACKING_STOPPED"
         const val EXTRA_ETA_MINUTES = "eta_minutes"
+        const val EXTRA_POLL_COUNT = "poll_count"
 
         private const val CHANNEL_TRACKING = "eta_tracking"
         private const val CHANNEL_ALERT = "eta_alert"
@@ -82,12 +84,14 @@ class EtaForegroundService : Service() {
         startForeground(NOTIFICATION_ID_TRACKING, trackingNotification)
         prefs.saveTracking(true)
         prefs.saveTrackingStartTime(System.currentTimeMillis())
+        prefs.savePollCount(0)
         startPollingLoop()
     }
 
     private fun stopTracking() {
         pollingJob?.cancel()
         prefs.saveTracking(false)
+        LocalBroadcastManager.getInstance(this).sendBroadcast(Intent(ACTION_TRACKING_STOPPED))
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -103,13 +107,20 @@ class EtaForegroundService : Service() {
     }
 
     private suspend fun performPoll() {
+        val pollCount = prefs.incrementAndGetPollCount()
+
         val apiKey = prefs.getApiKey() ?: run {
             stopTracking()
             return
         }
 
         val location = locationRepo.getCurrentLocation(this) ?: run {
-            updateTrackingNotification("Could not get location. Retrying...")
+            if (isDurationExpired()) {
+                updateTrackingNotification("Poll #$pollCount — Tracking duration expired. Stopping.")
+                stopTracking()
+            } else {
+                updateTrackingNotification("Poll #$pollCount — Could not get location. Retrying...")
+            }
             return
         }
 
@@ -125,7 +136,12 @@ class EtaForegroundService : Service() {
                 destinationName = destinationName,
                 apiKey = apiKey
             ) ?: run {
-                updateTrackingNotification("Unable to fetch ETA. Retrying...")
+                if (isDurationExpired()) {
+                    updateTrackingNotification("Poll #$pollCount — Tracking duration expired. Stopping.")
+                    stopTracking()
+                } else {
+                    updateTrackingNotification("Poll #$pollCount — Unable to fetch ETA. Retrying...")
+                }
                 return
             }
         } catch (e: InvalidApiKeyException) {
@@ -135,7 +151,7 @@ class EtaForegroundService : Service() {
         }
 
         prefs.saveLastEta(etaMinutes)
-        broadcastEtaUpdate(etaMinutes)
+        broadcastEtaUpdate(etaMinutes, pollCount)
 
         val threshold = prefs.getThreshold()
         val duration = prefs.getDuration()
@@ -149,18 +165,25 @@ class EtaForegroundService : Service() {
                 stopTracking()
             }
             result.trackingExpired -> {
-                updateTrackingNotification("Tracking duration expired. Stopping.")
+                updateTrackingNotification("Poll #$pollCount — Tracking duration expired. Stopping.")
                 stopTracking()
             }
             else -> {
-                updateTrackingNotification("ETA: $etaMinutes min (target: ≤$threshold min)")
+                updateTrackingNotification("Poll #$pollCount — ETA: $etaMinutes min (target: ≤$threshold min)")
             }
         }
     }
 
-    private fun broadcastEtaUpdate(etaMinutes: Int) {
+    private fun isDurationExpired(): Boolean {
+        val startTime = prefs.getTrackingStartTime()
+        val duration = prefs.getDuration()
+        return System.currentTimeMillis() > startTime + (duration * 60 * 1000L)
+    }
+
+    private fun broadcastEtaUpdate(etaMinutes: Int, pollCount: Int) {
         val intent = Intent(ACTION_ETA_UPDATE).apply {
             putExtra(EXTRA_ETA_MINUTES, etaMinutes)
+            putExtra(EXTRA_POLL_COUNT, pollCount)
         }
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }

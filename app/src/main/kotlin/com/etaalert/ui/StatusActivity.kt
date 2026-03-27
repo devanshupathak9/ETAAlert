@@ -24,14 +24,28 @@ class StatusActivity : AppCompatActivity() {
     private lateinit var tvEtaMinutes: TextView
     private lateinit var tvStatusText: TextView
     private lateinit var tvThresholdInfo: TextView
+    private lateinit var tvPollCount: TextView
     private lateinit var btnStopTracking: Button
 
     private val etaUpdateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val etaMinutes = intent?.getIntExtra(EtaForegroundService.EXTRA_ETA_MINUTES, -1) ?: -1
+            val pollCount = intent?.getIntExtra(EtaForegroundService.EXTRA_POLL_COUNT, 0) ?: 0
             if (etaMinutes >= 0) {
                 updateEtaDisplay(etaMinutes)
+                tvPollCount.text = getString(R.string.poll_count_format, pollCount)
             }
+        }
+    }
+
+    private val trackingStoppedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            prefs.saveTracking(false)
+            val setupIntent = Intent(this@StatusActivity, SetupActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(setupIntent)
+            finish()
         }
     }
 
@@ -46,6 +60,7 @@ class StatusActivity : AppCompatActivity() {
         tvEtaMinutes = findViewById(R.id.tvEtaMinutes)
         tvStatusText = findViewById(R.id.tvStatusText)
         tvThresholdInfo = findViewById(R.id.tvThresholdInfo)
+        tvPollCount = findViewById(R.id.tvPollCount)
         btnStopTracking = findViewById(R.id.btnStopTracking)
 
         tvDestination.text = prefs.getDestinationName() ?: getString(R.string.unknown_destination)
@@ -66,6 +81,10 @@ class StatusActivity : AppCompatActivity() {
             etaUpdateReceiver,
             IntentFilter(EtaForegroundService.ACTION_ETA_UPDATE)
         )
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            trackingStoppedReceiver,
+            IntentFilter(EtaForegroundService.ACTION_TRACKING_STOPPED)
+        )
 
         val lastEta = prefs.getLastEta()
         if (lastEta >= 0) {
@@ -75,11 +94,17 @@ class StatusActivity : AppCompatActivity() {
             tvStatusText.text = getString(R.string.status_calculating)
             ivStatusCircle.setImageResource(R.drawable.ic_red_circle)
         }
+
+        val savedPollCount = prefs.getPollCount()
+        if (savedPollCount > 0) {
+            tvPollCount.text = getString(R.string.poll_count_format, savedPollCount)
+        }
     }
 
     override fun onPause() {
         super.onPause()
         LocalBroadcastManager.getInstance(this).unregisterReceiver(etaUpdateReceiver)
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(trackingStoppedReceiver)
     }
 
     private fun updateEtaDisplay(etaMinutes: Int) {

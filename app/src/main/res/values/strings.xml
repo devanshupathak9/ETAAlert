@@ -56,4 +56,5 @@
     <string name="threshold_info">Alert threshold: %1$d min · Tracking for %2$d min</string>
     <string name="btn_stop_tracking">Stop Tracking</string>
     <string name="status_circle_desc">Status indicator</string>
+    <string name="poll_count_format">Poll #%d</string>
 </resources>
