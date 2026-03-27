@@ -42,3 +42,27 @@
 
 ---
 ## FIXES 2:
+What was broken and what's fixed                                                                                                  
+                                                                                                                                    
+Bug 1 — Duration never stopped tracking                                                                                           
+The real bug: when getCurrentLocation() or the Directions API call failed, performPoll() hit a return before ever reaching the    
+duration check in EtaEvaluator. So if you had bad GPS signal or intermittent network, the service would just keep retrying        
+indefinitely, ignoring the 30-min limit entirely.
+                                                                                                                                  
+Fix: added an isDurationExpired() helper and call it on both early-return paths. Now even failed polls respect the duration.      
+  
+Bug 2 — Same ETA time showing                                                                                                     
+This was a symptom of the above — if polls were silently failing (no location / API error), the UI kept showing the last cached
+ETA from SharedPreferences with no indication anything was happening.                                                             
+                
+Fix: the notification now shows "Poll #N — Could not get location. Retrying..." so you can see it's alive even when the           
+API/location fails.
+                                                                                                                                  
+Feature — Visible poll counter                                                                                                    
+- Added Poll #1, Poll #2... to both the persistent notification text AND a new label in StatusActivity
+- Poll count resets to 0 when you start a new tracking session                                                                    
+- If you open the app mid-tracking, it reads the saved poll count from SharedPreferences to show the current count immediately
+                                                                                                                                  
+Bonus — Auto-navigate back when tracking stops                                                                                    
+Added ACTION_TRACKING_STOPPED broadcast. When the service stops (duration expired or alert fired), if the app is open it now      
+automatically navigates back to the Setup screen instead of sitting frozen on the Status screen.
