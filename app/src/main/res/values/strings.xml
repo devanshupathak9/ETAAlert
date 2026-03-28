@@ -56,5 +56,9 @@
     <string name="threshold_info">Alert threshold: %1$d min · Tracking for %2$d min</string>
     <string name="btn_stop_tracking">Stop Tracking</string>
     <string name="status_circle_desc">Status indicator</string>
-    <string name="poll_count_format">Poll #%d</string>
+    <string name="poll_count_format">Poll %d — checking every 3 min</string>
+    <string name="eta_trend_decreasing">↓ %d min faster than last poll</string>
+    <string name="eta_trend_increasing">↑ %d min slower than last poll</string>
+    <string name="eta_trend_unchanged">→ Same as last poll</string>
+    <string name="duration_15_min">15 minutes</string>
 </resources>

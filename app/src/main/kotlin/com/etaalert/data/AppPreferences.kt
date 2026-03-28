@@ -20,6 +20,7 @@ class AppPreferences(context: Context) {
         private const val KEY_IS_TRACKING = "is_tracking"
         private const val KEY_LAST_ETA = "last_eta_minutes"
         private const val KEY_POLL_COUNT = "poll_count"
+        private const val KEY_PREV_ETA = "prev_eta_minutes"
     }
 
     fun saveApiKey(key: String) {
@@ -102,5 +103,13 @@ class AppPreferences(context: Context) {
         val next = getPollCount() + 1
         savePollCount(next)
         return next
+    }
+
+    fun savePrevEta(minutes: Int) {
+        prefs.edit().putInt(KEY_PREV_ETA, minutes).apply()
+    }
+
+    fun getPrevEta(): Int {
+        return prefs.getInt(KEY_PREV_ETA, -1)
     }
 }

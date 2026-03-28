@@ -9,6 +9,7 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.etaalert.R
 import com.etaalert.SetupActivity
@@ -22,6 +23,7 @@ class StatusActivity : AppCompatActivity() {
     private lateinit var tvDestination: TextView
     private lateinit var ivStatusCircle: ImageView
     private lateinit var tvEtaMinutes: TextView
+    private lateinit var tvEtaTrend: TextView
     private lateinit var tvStatusText: TextView
     private lateinit var tvThresholdInfo: TextView
     private lateinit var tvPollCount: TextView
@@ -31,8 +33,9 @@ class StatusActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val etaMinutes = intent?.getIntExtra(EtaForegroundService.EXTRA_ETA_MINUTES, -1) ?: -1
             val pollCount = intent?.getIntExtra(EtaForegroundService.EXTRA_POLL_COUNT, 0) ?: 0
+            val prevEta = intent?.getIntExtra(EtaForegroundService.EXTRA_PREV_ETA, -1) ?: -1
             if (etaMinutes >= 0) {
-                updateEtaDisplay(etaMinutes)
+                updateEtaDisplay(etaMinutes, prevEta)
                 tvPollCount.text = getString(R.string.poll_count_format, pollCount)
             }
         }
@@ -58,6 +61,7 @@ class StatusActivity : AppCompatActivity() {
         tvDestination = findViewById(R.id.tvDestination)
         ivStatusCircle = findViewById(R.id.ivStatusCircle)
         tvEtaMinutes = findViewById(R.id.tvEtaMinutes)
+        tvEtaTrend = findViewById(R.id.tvEtaTrend)
         tvStatusText = findViewById(R.id.tvStatusText)
         tvThresholdInfo = findViewById(R.id.tvThresholdInfo)
         tvPollCount = findViewById(R.id.tvPollCount)
@@ -88,9 +92,10 @@ class StatusActivity : AppCompatActivity() {
 
         val lastEta = prefs.getLastEta()
         if (lastEta >= 0) {
-            updateEtaDisplay(lastEta)
+            updateEtaDisplay(lastEta, prefs.getPrevEta())
         } else {
             tvEtaMinutes.text = getString(R.string.eta_calculating)
+            tvEtaTrend.text = ""
             tvStatusText.text = getString(R.string.status_calculating)
             ivStatusCircle.setImageResource(R.drawable.ic_red_circle)
         }
@@ -107,7 +112,7 @@ class StatusActivity : AppCompatActivity() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(trackingStoppedReceiver)
     }
 
-    private fun updateEtaDisplay(etaMinutes: Int) {
+    private fun updateEtaDisplay(etaMinutes: Int, prevEta: Int) {
         val threshold = prefs.getThreshold()
         tvEtaMinutes.text = getString(R.string.eta_minutes_format, etaMinutes)
 
@@ -117,6 +122,25 @@ class StatusActivity : AppCompatActivity() {
         } else {
             ivStatusCircle.setImageResource(R.drawable.ic_red_circle)
             tvStatusText.text = getString(R.string.status_not_yet)
+        }
+
+        if (prevEta >= 0) {
+            when {
+                etaMinutes < prevEta -> {
+                    tvEtaTrend.text = getString(R.string.eta_trend_decreasing, prevEta - etaMinutes)
+                    tvEtaTrend.setTextColor(ContextCompat.getColor(this, R.color.green))
+                }
+                etaMinutes > prevEta -> {
+                    tvEtaTrend.text = getString(R.string.eta_trend_increasing, etaMinutes - prevEta)
+                    tvEtaTrend.setTextColor(ContextCompat.getColor(this, R.color.orange))
+                }
+                else -> {
+                    tvEtaTrend.text = getString(R.string.eta_trend_unchanged)
+                    tvEtaTrend.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                }
+            }
+        } else {
+            tvEtaTrend.text = ""
         }
     }
 

@@ -134,7 +134,9 @@
                 android:textSize="16sp"
                 android:minHeight="56dp"
                 android:paddingTop="16dp"
-                android:paddingBottom="16dp" />
+                android:paddingBottom="16dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
 
         </com.google.android.material.textfield.TextInputLayout>
 

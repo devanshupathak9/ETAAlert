@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
@@ -33,12 +35,13 @@ class EtaForegroundService : Service() {
         const val ACTION_TRACKING_STOPPED = "com.etaalert.TRACKING_STOPPED"
         const val EXTRA_ETA_MINUTES = "eta_minutes"
         const val EXTRA_POLL_COUNT = "poll_count"
+        const val EXTRA_PREV_ETA = "prev_eta"
 
         private const val CHANNEL_TRACKING = "eta_tracking"
         private const val CHANNEL_ALERT = "eta_alert"
         private const val NOTIFICATION_ID_TRACKING = 1001
         private const val NOTIFICATION_ID_ALERT = 1002
-        private const val POLL_INTERVAL_MS = 4 * 60 * 1000L
+        private const val POLL_INTERVAL_MS = 3 * 60 * 1000L
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -85,7 +88,25 @@ class EtaForegroundService : Service() {
         prefs.saveTracking(true)
         prefs.saveTrackingStartTime(System.currentTimeMillis())
         prefs.savePollCount(0)
+        prefs.savePrevEta(-1)
         startPollingLoop()
+        scheduleDurationStop()
+    }
+
+    private fun scheduleDurationStop() {
+        serviceScope.launch {
+            val startTime = prefs.getTrackingStartTime()
+            val durationMs = prefs.getDuration() * 60 * 1000L
+            val elapsed = System.currentTimeMillis() - startTime
+            val remaining = durationMs - elapsed
+            if (remaining > 0) {
+                delay(remaining)
+            }
+            if (pollingJob?.isActive == true) {
+                updateTrackingNotification("Tracking duration ended. Stopping.")
+                stopTracking()
+            }
+        }
     }
 
     private fun stopTracking() {
@@ -100,6 +121,11 @@ class EtaForegroundService : Service() {
         pollingJob?.cancel()
         pollingJob = serviceScope.launch {
             while (true) {
+                if (isDurationExpired()) {
+                    updateTrackingNotification("Tracking duration ended. Stopping.")
+                    stopTracking()
+                    break
+                }
                 performPoll()
                 delay(POLL_INTERVAL_MS)
             }
@@ -150,8 +176,10 @@ class EtaForegroundService : Service() {
             return
         }
 
+        val prevEta = prefs.getLastEta()
+        prefs.savePrevEta(prevEta)
         prefs.saveLastEta(etaMinutes)
-        broadcastEtaUpdate(etaMinutes, pollCount)
+        broadcastEtaUpdate(etaMinutes, pollCount, prevEta)
 
         val threshold = prefs.getThreshold()
         val duration = prefs.getDuration()
@@ -180,10 +208,11 @@ class EtaForegroundService : Service() {
         return System.currentTimeMillis() > startTime + (duration * 60 * 1000L)
     }
 
-    private fun broadcastEtaUpdate(etaMinutes: Int, pollCount: Int) {
+    private fun broadcastEtaUpdate(etaMinutes: Int, pollCount: Int, prevEta: Int) {
         val intent = Intent(ACTION_ETA_UPDATE).apply {
             putExtra(EXTRA_ETA_MINUTES, etaMinutes)
             putExtra(EXTRA_POLL_COUNT, pollCount)
+            putExtra(EXTRA_PREV_ETA, prevEta)
         }
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
@@ -198,6 +227,12 @@ class EtaForegroundService : Service() {
             setShowBadge(false)
         }
 
+        val alertSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        val alertAudioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+
         val alertChannel = NotificationChannel(
             CHANNEL_ALERT,
             "ETA Alert",
@@ -205,6 +240,8 @@ class EtaForegroundService : Service() {
         ).apply {
             description = "Fires when it's time to leave"
             enableVibration(true)
+            vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
+            setSound(alertSound, alertAudioAttributes)
         }
 
         notificationManager.createNotificationChannel(trackingChannel)

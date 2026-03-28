@@ -45,7 +45,7 @@ class SetupActivity : AppCompatActivity() {
     private var searchJob: Job? = null
     private lateinit var suggestionAdapter: ArrayAdapter<String>
 
-    private val durationOptions = listOf(30, 60, 90, 120)
+    private val durationOptions = listOf(15, 30, 60, 90, 120)
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
