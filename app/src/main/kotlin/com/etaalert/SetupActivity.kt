@@ -1,6 +1,7 @@
 package com.etaalert
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -11,6 +12,7 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Filter
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
@@ -24,15 +26,27 @@ import com.etaalert.data.PlacesRepository
 import com.etaalert.service.EtaForegroundService
 import com.etaalert.service.EtaWorker
 import com.etaalert.ui.StatusActivity
+import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.concurrent.TimeUnit
 
 class SetupActivity : AppCompatActivity() {
 
     private lateinit var prefs: AppPreferences
     private val placesRepo = PlacesRepository()
     private val locationRepo by lazy { LocationRepository(this) }
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
+        .build()
 
     private lateinit var etDestination: AutoCompleteTextView
     private lateinit var etThreshold: EditText
@@ -43,7 +57,8 @@ class SetupActivity : AppCompatActivity() {
     private var currentLat: Double? = null
     private var currentLng: Double? = null
     private var searchJob: Job? = null
-    private lateinit var suggestionAdapter: ArrayAdapter<String>
+    private val suggestionList = mutableListOf<String>()
+    private lateinit var suggestionAdapter: NoFilterArrayAdapter
 
     private val durationOptions = listOf(15, 30, 60, 90, 120)
 
@@ -97,8 +112,9 @@ class SetupActivity : AppCompatActivity() {
         val savedIndex = durationOptions.indexOf(savedDuration).takeIf { it >= 0 } ?: 1
         etDuration.setText(durationLabels[savedIndex], false)
 
-        // Places autocomplete setup
-        suggestionAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, mutableListOf())
+        // Places autocomplete setup — NoFilterArrayAdapter bypasses client-side filtering
+        // so all API-returned suggestions are shown regardless of how they start
+        suggestionAdapter = NoFilterArrayAdapter(this, suggestionList)
         etDestination.setAdapter(suggestionAdapter)
         etDestination.threshold = 2
 
@@ -113,26 +129,32 @@ class SetupActivity : AppCompatActivity() {
                     delay(400)
                     val apiKey = prefs.getApiKey() ?: return@launch
                     val suggestions = placesRepo.getSuggestions(query, apiKey, currentLat, currentLng)
-                    suggestionAdapter.clear()
-                    suggestionAdapter.addAll(suggestions)
+                    suggestionList.clear()
+                    suggestionList.addAll(suggestions)
                     suggestionAdapter.notifyDataSetChanged()
+                    if (suggestions.isNotEmpty()) etDestination.showDropDown()
                 }
             }
         })
 
         btnStart.setOnClickListener {
-            // First check API key
-            if (prefs.getApiKey() == null) {
-                Toast.makeText(this, getString(R.string.error_no_api_key), Toast.LENGTH_LONG).show()
-                startActivity(
-                    Intent(this, ApiKeyActivity::class.java).apply {
-                        putExtra(ApiKeyActivity.EXTRA_SHOW_BACK, true)
-                    }
-                )
+            val apiKey = prefs.getApiKey()
+            if (apiKey == null) {
+                showApiKeySnackbar("No API key found. Please add your Google Maps API key.")
                 return@setOnClickListener
             }
-            if (validateAndSaveInputs()) {
-                checkLocationPermissionAndStart()
+            if (!validateAndSaveInputs()) return@setOnClickListener
+
+            btnStart.isEnabled = false
+            btnStart.text = "Verifying key\u2026"
+            lifecycleScope.launch {
+                val status = validateApiKey(apiKey)
+                btnStart.isEnabled = true
+                btnStart.text = getString(R.string.btn_start_tracking)
+                when (status) {
+                    "OK", "NETWORK_ERROR" -> checkLocationPermissionAndStart()
+                    else -> showApiKeySnackbar("Invalid API key. Please update your API key.")
+                }
             }
         }
 
@@ -246,5 +268,55 @@ class SetupActivity : AppCompatActivity() {
         EtaWorker.schedule(this)
         startActivity(Intent(this, StatusActivity::class.java))
         finish()
+    }
+
+    private fun showApiKeySnackbar(message: String) {
+        Snackbar.make(findViewById(android.R.id.content), message, Snackbar.LENGTH_LONG)
+            .setAction("Update Key") {
+                startActivity(Intent(this, ApiKeyActivity::class.java).apply {
+                    putExtra(ApiKeyActivity.EXTRA_SHOW_BACK, true)
+                })
+            }
+            .show()
+    }
+
+    private suspend fun validateApiKey(key: String): String = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = """{"origin":{"location":{"latLng":{"latitude":40.7128,"longitude":-74.0060}}},"destination":{"location":{"latLng":{"latitude":40.7306,"longitude":-73.9352}}},"travelMode":"DRIVE","routingPreference":"TRAFFIC_AWARE"}"""
+            val request = Request.Builder()
+                .url("https://routes.googleapis.com/directions/v2:computeRoutes")
+                .addHeader("X-Goog-Api-Key", key)
+                .addHeader("X-Goog-FieldMask", "routes.duration")
+                .post(jsonBody.toRequestBody("application/json".toMediaType()))
+                .build()
+            val response = httpClient.newCall(request).execute()
+            when (response.code) {
+                200 -> "OK"
+                403 -> "PERMISSION_DENIED"
+                429 -> "QUOTA_EXCEEDED"
+                else -> "NETWORK_ERROR"
+            }
+        } catch (e: Exception) {
+            "NETWORK_ERROR"
+        }
+    }
+
+    /** ArrayAdapter that skips client-side filtering — all items from the API are shown as-is. */
+    private inner class NoFilterArrayAdapter(
+        context: Context,
+        private val items: MutableList<String>
+    ) : ArrayAdapter<String>(context, android.R.layout.simple_dropdown_item_1line, items) {
+
+        private val noOpFilter = object : Filter() {
+            override fun performFiltering(constraint: CharSequence?) = FilterResults().apply {
+                values = items.toList()
+                count = items.size
+            }
+            override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                notifyDataSetChanged()
+            }
+        }
+
+        override fun getFilter(): Filter = noOpFilter
     }
 }
