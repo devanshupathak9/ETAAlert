@@ -21,6 +21,8 @@ class StatusActivity : AppCompatActivity() {
 
     private lateinit var prefs: AppPreferences
     private lateinit var tvDestination: TextView
+    private lateinit var tvCurrentLocation: TextView
+    private lateinit var tvAlertBanner: TextView
     private lateinit var ivStatusCircle: ImageView
     private lateinit var tvEtaMinutes: TextView
     private lateinit var tvEtaTrend: TextView
@@ -34,9 +36,13 @@ class StatusActivity : AppCompatActivity() {
             val etaMinutes = intent?.getIntExtra(EtaForegroundService.EXTRA_ETA_MINUTES, -1) ?: -1
             val pollCount = intent?.getIntExtra(EtaForegroundService.EXTRA_POLL_COUNT, 0) ?: 0
             val prevEta = intent?.getIntExtra(EtaForegroundService.EXTRA_PREV_ETA, -1) ?: -1
+            val address = intent?.getStringExtra(EtaForegroundService.EXTRA_LOCATION_ADDRESS)
             if (etaMinutes >= 0) {
                 updateEtaDisplay(etaMinutes, prevEta)
                 tvPollCount.text = getString(R.string.poll_count_format, pollCount)
+            }
+            if (!address.isNullOrEmpty()) {
+                tvCurrentLocation.text = getString(R.string.status_current_location, address)
             }
         }
     }
@@ -59,6 +65,8 @@ class StatusActivity : AppCompatActivity() {
         prefs = AppPreferences(this)
 
         tvDestination = findViewById(R.id.tvDestination)
+        tvCurrentLocation = findViewById(R.id.tvCurrentLocation)
+        tvAlertBanner = findViewById(R.id.tvAlertBanner)
         ivStatusCircle = findViewById(R.id.ivStatusCircle)
         tvEtaMinutes = findViewById(R.id.tvEtaMinutes)
         tvEtaTrend = findViewById(R.id.tvEtaTrend)
@@ -92,7 +100,8 @@ class StatusActivity : AppCompatActivity() {
 
         val lastEta = prefs.getLastEta()
         if (lastEta >= 0) {
-            updateEtaDisplay(lastEta, prefs.getPrevEta())
+            // On UI restore (e.g. rotate/resume), no in-memory prevEta is available — show ETA without trend
+            updateEtaDisplay(lastEta, -1)
         } else {
             tvEtaMinutes.text = getString(R.string.eta_calculating)
             tvEtaTrend.text = ""
@@ -119,11 +128,15 @@ class StatusActivity : AppCompatActivity() {
         if (etaMinutes <= threshold) {
             ivStatusCircle.setImageResource(R.drawable.ic_green_circle)
             tvStatusText.text = getString(R.string.status_good_to_go)
+            tvAlertBanner.visibility = android.view.View.VISIBLE
+            tvAlertBanner.text = getString(R.string.alert_banner_leave_now, etaMinutes, threshold)
         } else {
             ivStatusCircle.setImageResource(R.drawable.ic_red_circle)
             tvStatusText.text = getString(R.string.status_not_yet)
+            tvAlertBanner.visibility = android.view.View.GONE
         }
 
+        // prevEta == -1 means first poll of this session — no comparison to show
         if (prevEta >= 0) {
             when {
                 etaMinutes < prevEta -> {

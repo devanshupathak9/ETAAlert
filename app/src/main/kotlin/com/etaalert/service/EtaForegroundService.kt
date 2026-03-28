@@ -17,6 +17,7 @@ import com.etaalert.data.AppPreferences
 import com.etaalert.data.DirectionsRepository
 import com.etaalert.data.InvalidApiKeyException
 import com.etaalert.data.LocationRepository
+import com.etaalert.data.PlacesRepository
 import com.etaalert.domain.EtaEvaluator
 import com.etaalert.ui.StatusActivity
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +37,7 @@ class EtaForegroundService : Service() {
         const val EXTRA_ETA_MINUTES = "eta_minutes"
         const val EXTRA_POLL_COUNT = "poll_count"
         const val EXTRA_PREV_ETA = "prev_eta"
+        const val EXTRA_LOCATION_ADDRESS = "location_address"
 
         private const val CHANNEL_TRACKING = "eta_tracking"
         private const val CHANNEL_ALERT = "eta_alert"
@@ -48,9 +50,13 @@ class EtaForegroundService : Service() {
     private var pollingJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
+    // In-memory only — not persisted across sessions
+    private var lastPollEta: Int = -1
+
     private lateinit var prefs: AppPreferences
     private lateinit var directionsRepo: DirectionsRepository
     private lateinit var locationRepo: LocationRepository
+    private lateinit var placesRepo: PlacesRepository
     private lateinit var evaluator: EtaEvaluator
     private lateinit var notificationManager: NotificationManager
 
@@ -59,6 +65,7 @@ class EtaForegroundService : Service() {
         prefs = AppPreferences(this)
         directionsRepo = DirectionsRepository()
         locationRepo = LocationRepository(this)
+        placesRepo = PlacesRepository()
         evaluator = EtaEvaluator()
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannels()
@@ -88,7 +95,8 @@ class EtaForegroundService : Service() {
         prefs.saveTracking(true)
         prefs.saveTrackingStartTime(System.currentTimeMillis())
         prefs.savePollCount(0)
-        prefs.savePrevEta(-1)
+        prefs.saveLastEta(-1)
+        lastPollEta = -1  // Reset in-memory comparison baseline for this session
         startPollingLoop()
         scheduleDurationStop()
     }
@@ -176,10 +184,14 @@ class EtaForegroundService : Service() {
             return
         }
 
-        val prevEta = prefs.getLastEta()
-        prefs.savePrevEta(prevEta)
+        val prevEta = lastPollEta  // In-memory only; never persisted across sessions
+        lastPollEta = etaMinutes
         prefs.saveLastEta(etaMinutes)
-        broadcastEtaUpdate(etaMinutes, pollCount, prevEta)
+
+        val locationAddress = placesRepo.reverseGeocode(location.latitude, location.longitude, apiKey)
+            ?: "%.4f, %.4f".format(location.latitude, location.longitude)
+
+        broadcastEtaUpdate(etaMinutes, pollCount, prevEta, locationAddress)
 
         val threshold = prefs.getThreshold()
         val duration = prefs.getDuration()
@@ -208,11 +220,12 @@ class EtaForegroundService : Service() {
         return System.currentTimeMillis() > startTime + (duration * 60 * 1000L)
     }
 
-    private fun broadcastEtaUpdate(etaMinutes: Int, pollCount: Int, prevEta: Int) {
+    private fun broadcastEtaUpdate(etaMinutes: Int, pollCount: Int, prevEta: Int, locationAddress: String) {
         val intent = Intent(ACTION_ETA_UPDATE).apply {
             putExtra(EXTRA_ETA_MINUTES, etaMinutes)
             putExtra(EXTRA_POLL_COUNT, pollCount)
             putExtra(EXTRA_PREV_ETA, prevEta)
+            putExtra(EXTRA_LOCATION_ADDRESS, locationAddress)
         }
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
@@ -280,15 +293,28 @@ class EtaForegroundService : Service() {
             this, 1, statusIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val fullScreenIntent = PendingIntent.getActivity(
+            this, 3, statusIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
+        val destination = prefs.getDestinationName() ?: "your destination"
         val notification = NotificationCompat.Builder(this, CHANNEL_ALERT)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Time to leave!")
-            .setContentText("ETA is now $etaMinutes min — under your $threshold min threshold.")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentTitle("Time to leave now!")
+            .setContentText("ETA: $etaMinutes min to $destination")
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("Your ETA to $destination is now $etaMinutes min — below your $threshold min threshold. Head out now!")
+                    .setBigContentTitle("Time to leave now!")
+            )
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setVibrate(longArrayOf(0, 500, 200, 500))
+            .setFullScreenIntent(fullScreenIntent, true)
+            .setVibrate(longArrayOf(0, 600, 200, 600, 200, 600, 200, 600))
+            .setOnlyAlertOnce(false)
             .build()
 
         notificationManager.notify(NOTIFICATION_ID_ALERT, notification)

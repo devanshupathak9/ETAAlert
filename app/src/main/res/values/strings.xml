@@ -61,4 +61,6 @@
     <string name="eta_trend_increasing">↑ %d min slower than last poll</string>
     <string name="eta_trend_unchanged">→ Same as last poll</string>
     <string name="duration_15_min">15 minutes</string>
+    <string name="status_current_location">📍 From: %s</string>
+    <string name="alert_banner_leave_now">🚨 Leave now! ETA %1$d min is under your %2$d min threshold</string>
 </resources>
