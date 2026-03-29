@@ -14,9 +14,6 @@ class MainActivity : AppCompatActivity() {
         val prefs = AppPreferences(this)
 
         val destination = when {
-            prefs.getApiKey() == null -> {
-                Intent(this, ApiKeyActivity::class.java)
-            }
             prefs.isTracking() -> {
                 Intent(this, StatusActivity::class.java)
             }

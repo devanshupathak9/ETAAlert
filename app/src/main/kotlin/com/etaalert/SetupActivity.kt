@@ -140,7 +140,7 @@ class SetupActivity : AppCompatActivity() {
         btnStart.setOnClickListener {
             val apiKey = prefs.getApiKey()
             if (apiKey == null) {
-                showApiKeySnackbar("No API key found. Please add your Google Maps API key.")
+                showApiKeySnackbar("No API key set. Tap \"Add Key\" to enter your Google Maps API key.", "Add Key")
                 return@setOnClickListener
             }
             if (!validateAndSaveInputs()) return@setOnClickListener
@@ -153,7 +153,7 @@ class SetupActivity : AppCompatActivity() {
                 btnStart.text = getString(R.string.btn_start_tracking)
                 when (status) {
                     "OK", "NETWORK_ERROR" -> checkLocationPermissionAndStart()
-                    else -> showApiKeySnackbar("Invalid API key. Please update your API key.")
+                    else -> showApiKeySnackbar("API key is invalid. Tap \"Update Key\" to fix it.")
                 }
             }
         }
@@ -270,9 +270,9 @@ class SetupActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun showApiKeySnackbar(message: String) {
+    private fun showApiKeySnackbar(message: String, actionLabel: String = "Update Key") {
         Snackbar.make(findViewById(android.R.id.content), message, Snackbar.LENGTH_LONG)
-            .setAction("Update Key") {
+            .setAction(actionLabel) {
                 startActivity(Intent(this, ApiKeyActivity::class.java).apply {
                     putExtra(ApiKeyActivity.EXTRA_SHOW_BACK, true)
                 })
