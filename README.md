@@ -92,5 +92,3 @@ Or open the project in Android Studio, let Gradle sync, and hit Run.
 ## Tech Stack
 
 Kotlin · Foreground Service + WorkManager · FusedLocationProvider · Google Routes / Places / Geocoding APIs · OkHttp + Gson · SharedPreferences · minSdk 26
-
-See `FIXES.md` for the log of reported issues and what changed for each.
