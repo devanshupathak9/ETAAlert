@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — ETA Alert</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 4rem;
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #212121;
+    background: #fafafa;
+  }
+  h1 { font-size: 1.9rem; margin-bottom: .25rem; }
+  h2 { font-size: 1.2rem; margin-top: 2.25rem; border-bottom: 1px solid #ddd; padding-bottom: .35rem; }
+  .updated { color: #757575; font-size: .9rem; margin-top: 0; }
+  ul { padding-left: 1.25rem; }
+  li { margin: .4rem 0; }
+  code { background: #eceff1; padding: .1rem .35rem; border-radius: 3px; font-size: .9em; }
+  a { color: #1976d2; }
+  .callout {
+    background: #e3f2fd;
+    border-left: 4px solid #1976d2;
+    padding: .9rem 1.1rem;
+    border-radius: 4px;
+    margin: 1.5rem 0;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e0e0e0; background: #121212; }
+    h2 { border-bottom-color: #333; }
+    code { background: #263238; }
+    .callout { background: #12283a; border-left-color: #64b5f6; }
+    .updated { color: #9e9e9e; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Privacy Policy — ETA Alert</h1>
+<p class="updated">Last updated: 3 September 2026</p>
+
+<p>ETA Alert is an Android app that watches live traffic and sends you one notification when
+the drive time to your destination drops below a threshold you choose. This policy explains
+exactly what the app does with your data.</p>
+
+<div class="callout">
+  <strong>In short:</strong> ETA Alert has no servers and no accounts. Your location and your
+  destination go directly from your phone to Google Maps to calculate a drive time. The
+  developer never receives, stores, or sees any of your data.
+</div>
+
+<h2>What the app collects</h2>
+<ul>
+  <li><strong>Approximate and precise location.</strong> Collected while you are actively
+      tracking a trip, including when the app is in the background or the screen is off.
+      It is the starting point for the drive-time calculation.</li>
+  <li><strong>Your destination.</strong> The address or place name you type in.</li>
+  <li><strong>Your Google Maps API key.</strong> You create this yourself in Google Cloud
+      Console and paste it into the app.</li>
+  <li><strong>Your settings.</strong> Alert threshold and tracking duration.</li>
+</ul>
+
+<h2>Why location is used in the background</h2>
+<p>The whole purpose of the app is to keep checking traffic while you get on with something
+else. To do that it runs a foreground service that requests your current location roughly
+every three minutes and asks Google for the current drive time. A persistent notification is
+shown the entire time this is happening, so you always know when the app is active.</p>
+<p>Tracking stops automatically as soon as one of these happens: the drive time drops below
+your threshold and you are alerted, the tracking window you set expires, or you press Stop.</p>
+
+<h2>Where your data goes</h2>
+<p>Your location and destination are sent from your device directly to Google's Maps Platform
+services (Routes API, Places API, and Geocoding API), using the API key you supplied. Those
+requests are governed by
+<a href="https://policies.google.com/privacy">Google's Privacy Policy</a> and
+<a href="https://cloud.google.com/maps-platform/terms">Google Maps Platform Terms of Service</a>.</p>
+<p>ETA Alert sends data to no other destination. There is no analytics SDK, no advertising SDK,
+no crash reporting service, and no developer-operated backend of any kind.</p>
+
+<h2>What is stored, and where</h2>
+<p>Everything the app remembers — your API key, destination, threshold, duration, and tracking
+state — is stored in Android's private <code>SharedPreferences</code> storage on your device.
+That area is readable only by ETA Alert. Nothing is uploaded anywhere.</p>
+<p>Your location is never written to storage. It is held in memory only long enough to make a
+single request, then discarded.</p>
+
+<h2>Data sharing and selling</h2>
+<p>No data is sold. No data is shared with third parties other than the direct Google Maps
+requests described above, which are required for the app to function.</p>
+
+<h2>Deleting your data</h2>
+<p>Uninstalling ETA Alert removes everything the app has stored. You can also clear it at any
+time via <em>Android Settings → Apps → ETA Alert → Storage → Clear data</em>. Because nothing
+is held on any server, there is no deletion request to submit.</p>
+
+<h2>Permissions and why each is needed</h2>
+<ul>
+  <li><code>ACCESS_FINE_LOCATION</code> / <code>ACCESS_COARSE_LOCATION</code> — determine where
+      the drive starts from.</li>
+  <li><code>FOREGROUND_SERVICE</code> / <code>FOREGROUND_SERVICE_LOCATION</code> — keep checking
+      traffic while the app is not on screen.</li>
+  <li><code>INTERNET</code> — reach Google Maps.</li>
+  <li><code>POST_NOTIFICATIONS</code> — show the tracking notification and the final alert.</li>
+  <li><code>WAKE_LOCK</code> — stop the device sleeping through a scheduled traffic check.</li>
+</ul>
+
+<h2>Children</h2>
+<p>ETA Alert is not directed at children under 13 and does not knowingly collect data from them.</p>
+
+<h2>Changes to this policy</h2>
+<p>If this policy changes, the updated version will be posted at this URL with a new date at
+the top.</p>
+
+<h2>Contact</h2>
+<p>Questions about this policy can be raised at
+<a href="https://github.com/devanshupathak9/ETAAlert/issues">github.com/devanshupathak9/ETAAlert/issues</a>.</p>
+
+</body>
+</html>

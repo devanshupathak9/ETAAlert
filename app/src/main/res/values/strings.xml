@@ -23,6 +23,13 @@
 
     <string name="error_notification_permission">Notifications are blocked, so ETA Alert cannot tell you when to leave. Enable notifications for ETA Alert in Settings, then try again.</string>
 
+    <!-- Location Prominent Disclosure (Google Play policy requirement) -->
+    <string name="disclosure_title">ETA Alert uses your location</string>
+    <string name="disclosure_body">ETA Alert collects your device location, including while the app is closed or not in use, so it can keep checking live traffic between where you are and your destination.\n\nYour location is sent directly from this device to Google Maps to calculate your drive time. It is never sent to us, never stored on a server, and never shared with anyone else.\n\nLocation is only used while you are tracking a trip. Tracking stops automatically when you are alerted or when your tracking window ends.</string>
+    <string name="disclosure_accept">Allow location</string>
+    <string name="disclosure_decline">Not now</string>
+    <string name="disclosure_declined">ETA Alert needs your location to check traffic. You can start tracking once you allow it.</string>
+
     <!-- Setup Screen -->
     <string name="setup_title">ETA Alert</string>
     <string name="setup_subtitle">Know exactly when to leave</string>

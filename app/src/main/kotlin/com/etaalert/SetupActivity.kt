@@ -26,6 +26,7 @@ import com.etaalert.data.PlacesRepository
 import com.etaalert.service.EtaForegroundService
 import com.etaalert.service.EtaWorker
 import com.etaalert.ui.StatusActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -247,14 +248,46 @@ class SetupActivity : AppCompatActivity() {
 
         if (fineGranted) {
             requestNotificationPermissionIfNeeded()
+        } else if (prefs.isLocationDisclosureAccepted()) {
+            requestLocationPermission()
         } else {
-            locationPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
+            showLocationDisclosure()
         }
+    }
+
+    /**
+     * Google Play policy requires a prominent, in-app disclosure explaining what
+     * location data is collected and why — shown BEFORE the system permission
+     * dialog, and dismissible only by an affirmative action from the user.
+     */
+    private fun showLocationDisclosure() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.disclosure_title)
+            .setMessage(R.string.disclosure_body)
+            .setCancelable(false)
+            .setPositiveButton(R.string.disclosure_accept) { dialog, _ ->
+                dialog.dismiss()
+                prefs.saveLocationDisclosureAccepted()
+                requestLocationPermission()
+            }
+            .setNegativeButton(R.string.disclosure_decline) { dialog, _ ->
+                dialog.dismiss()
+                Toast.makeText(
+                    this,
+                    getString(R.string.disclosure_declined),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            .show()
+    }
+
+    private fun requestLocationPermission() {
+        locationPermissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
     }
 
     private fun requestNotificationPermissionIfNeeded() {

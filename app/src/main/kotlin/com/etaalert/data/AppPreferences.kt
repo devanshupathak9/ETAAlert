@@ -20,6 +20,16 @@ class AppPreferences(context: Context) {
         private const val KEY_IS_TRACKING = "is_tracking"
         private const val KEY_LAST_ETA = "last_eta_minutes"
         private const val KEY_POLL_COUNT = "poll_count"
+        private const val KEY_LOCATION_DISCLOSURE_ACCEPTED = "location_disclosure_accepted"
+    }
+
+    /** Google Play requires a prominent disclosure before the location permission request. */
+    fun isLocationDisclosureAccepted(): Boolean {
+        return prefs.getBoolean(KEY_LOCATION_DISCLOSURE_ACCEPTED, false)
+    }
+
+    fun saveLocationDisclosureAccepted() {
+        prefs.edit().putBoolean(KEY_LOCATION_DISCLOSURE_ACCEPTED, true).apply()
     }
 
     fun saveApiKey(key: String) {
