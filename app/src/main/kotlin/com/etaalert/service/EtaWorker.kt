@@ -44,7 +44,7 @@ class EtaWorker(
 
         if (!isServiceRunning()) {
             val serviceIntent = Intent(context, EtaForegroundService::class.java).apply {
-                action = EtaForegroundService.ACTION_START
+                action = EtaForegroundService.ACTION_RESUME
             }
             ContextCompat.startForegroundService(context, serviceIntent)
         }

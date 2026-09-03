@@ -7,7 +7,7 @@
     <string name="api_key_title">Google Maps API Key</string>
     <string name="api_key_description">Your key is stored locally on this device only and never shared.</string>
     <string name="api_key_instructions_title">How to create your API key:</string>
-    <string name="api_key_instructions">1. Go to console.cloud.google.com\n2. Create or select a project\n3. Enable: Directions API, Places API, Geocoding API\n4. Go to Credentials → Create Credentials → API Key\n5. Copy the key and paste it below</string>
+    <string name="api_key_instructions">1. Go to console.cloud.google.com\n2. Create or select a project\n3. Link a billing account to the project\n4. Enable: Routes API, Places API, Geocoding API\n5. Go to Credentials → Create Credentials → API Key\n6. Copy the key and paste it below</string>
     <string name="api_key_status_valid">✓ API key verified successfully!</string>
     <string name="api_key_status_invalid">✗ Invalid or expired key. Check your Cloud Console.</string>
     <string name="hint_api_key">Paste your API key here</string>
@@ -15,11 +15,13 @@
     <string name="api_key_saved">API key saved</string>
     <string name="api_key_valid">API key verified!</string>
     <string name="api_key_error_title">API Key Issue</string>
-    <string name="api_key_error_denied">Invalid or expired API key, or the Directions API is not enabled.\n\nPlease check your Google Cloud Console and make sure:\n• The API key is correct\n• Directions API is enabled\n• Billing is active</string>
+    <string name="api_key_error_denied">Invalid or expired API key, or the Routes API is not enabled.\n\nPlease check your Google Cloud Console and make sure:\n• The API key is correct\n• Routes API is enabled\n• Billing is active</string>
     <string name="api_key_error_quota">This API key has exceeded its daily quota or billing limit. Please check your Google Cloud Console billing settings.</string>
     <string name="api_key_error_network">Could not reach Google servers. Check your internet connection.\n\nSave the key anyway?</string>
     <string name="btn_save_anyway">Save Anyway</string>
     <string name="error_empty_api_key">Please enter a valid API key</string>
+
+    <string name="error_notification_permission">Notifications are blocked, so ETA Alert cannot tell you when to leave. Enable notifications for ETA Alert in Settings, then try again.</string>
 
     <!-- Setup Screen -->
     <string name="setup_title">ETA Alert</string>

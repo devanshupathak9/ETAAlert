@@ -76,8 +76,18 @@ class SetupActivity : AppCompatActivity() {
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) {
-        startTrackingService()
+    ) { granted ->
+        // Without this permission the alert can never be delivered, so tracking
+        // would silently burn battery and API quota for nothing.
+        if (granted) {
+            startTrackingService()
+        } else {
+            Toast.makeText(
+                this,
+                getString(R.string.error_notification_permission),
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

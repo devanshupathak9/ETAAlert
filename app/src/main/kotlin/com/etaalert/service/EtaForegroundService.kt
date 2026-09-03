@@ -32,6 +32,7 @@ class EtaForegroundService : Service() {
     companion object {
         const val ACTION_START = "com.etaalert.START"
         const val ACTION_STOP = "com.etaalert.STOP"
+        const val ACTION_RESUME = "com.etaalert.RESUME"
         const val ACTION_ETA_UPDATE = "com.etaalert.ETA_UPDATE"
         const val ACTION_TRACKING_STOPPED = "com.etaalert.TRACKING_STOPPED"
         const val EXTRA_ETA_MINUTES = "eta_minutes"
@@ -74,8 +75,13 @@ class EtaForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> startTracking()
+            ACTION_START -> startTracking(resume = false)
+            ACTION_RESUME -> startTracking(resume = true)
             ACTION_STOP -> stopTracking()
+            // START_STICKY restart: the system re-creates us with a null intent.
+            // Resume the existing session if one is live, otherwise shut down —
+            // never sit idle holding the wake lock.
+            else -> if (prefs.isTracking()) startTracking(resume = true) else stopTracking()
         }
         return START_STICKY
     }
@@ -89,14 +95,27 @@ class EtaForegroundService : Service() {
         prefs.saveTracking(false)
     }
 
-    private fun startTracking() {
+    private fun startTracking(resume: Boolean) {
         val trackingNotification = buildTrackingNotification("Initializing...")
         startForeground(NOTIFICATION_ID_TRACKING, trackingNotification)
         prefs.saveTracking(true)
-        prefs.saveTrackingStartTime(System.currentTimeMillis())
-        prefs.savePollCount(0)
-        prefs.saveLastEta(-1)
+
+        // Only a user-initiated start restarts the duration window. A resume
+        // (EtaWorker revival or a START_STICKY restart) must keep the original
+        // start time, or the tracking window renews itself forever.
+        if (!resume) {
+            prefs.saveTrackingStartTime(System.currentTimeMillis())
+            prefs.savePollCount(0)
+            prefs.saveLastEta(-1)
+        }
         lastPollEta = -1  // Reset in-memory comparison baseline for this session
+
+        if (resume && isDurationExpired()) {
+            updateTrackingNotification("Tracking duration ended. Stopping.")
+            stopTracking()
+            return
+        }
+
         startPollingLoop()
         scheduleDurationStop()
     }
