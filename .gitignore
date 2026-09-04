@@ -2,5 +2,17 @@
 .idea/
 local.properties
 /build
-/build
 app/build/
+
+# macOS
+.DS_Store
+
+# Release build outputs
+app/release/
+*.aab
+*.apk
+
+# Signing keys — must never be committed
+*.jks
+*.keystore
+keystore.properties
